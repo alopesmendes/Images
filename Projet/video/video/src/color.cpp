@@ -7,65 +7,104 @@
 
 using namespace cv;
 
-map<uchar, Vec3b> allColorInZone(const Mat& zone) {
-    map<uchar, Vec3b> colors;
-    for (int i = 0; i < zone.rows; i++) {
-       for (int j = 0; j < zone.cols; j++) {
-            colors[zone.at<uchar>(i,j)] = zone.at<Vec3b>(i, j);
-            /*if (colors.find(zone.at<Vec3b>(i, j)) == colors.end()) {
-                colors.insert(pair<Vec3b, int>(zone.at<Vec3b>(i, j), 0));
-            } else {
-                colors[zone.at<Vec3b>(i, j)] = 1;
-            }*/
-       } 
-    }
-    return colors;
+// --------------------------- begin Hsv class code ----------------------------------------
+Hsv::Hsv(unsigned char hue, unsigned char saturation, unsigned char value) {
+    Hsv::hue = hue;
+    Hsv::saturation = saturation;
+    Hsv::value = value;
 }
 
-void rgbToHsv(unsigned char r, unsigned char g, unsigned char b) {
+Hsv::Hsv() {
+    Hsv(0, 0, 0);
+}
+
+Scalar Hsv::color() {
+    return Scalar(hue, saturation, value);
+}
+
+void Hsv::update(Hsv hsv, unsigned char (*f)(unsigned char, unsigned char)) {
+    hue = (*f)(hue, hsv.hue);
+    saturation = (*f)(saturation, hsv.saturation);
+    value = (*f)(value, hsv.value);
+}
+
+unsigned char Hsv::getHue() {
+    return hue;
+}
+// --------------------------- end Hsv class code -------------------------------------------
 
 
-    // h, s, v = hue, saturation, value 
-    unsigned char cmax = std::max(r, std::max(g, b)); // maximum of r, g, b 
-    unsigned char cmin = std::min(r, std::min(g, b)); // minimum of r, g, b 
-    unsigned char h, s, v; 
+// --------------------------- begin Rgb class code -----------------------------------------
+Rgb::Rgb(unsigned char red, unsigned char green, unsigned char blue) {
+    Rgb::red = red;
+    Rgb::green = green;
+    Rgb::blue = blue;
+}
 
-    v = cmax;
-    if (v == 0) {
-        h = s = 0;
-        std::cout << "h is " << (int)h << " s is " << (int)s << " v is " << (int)v << std::endl;
-        return;
-    } 
-    s = 255 * long(cmax - cmin) / v;
-    if (s == 0) {
-        h = 0;
-        std::cout << "h is " << (int)h << " s is " << (int)s << " v is " << (int)v << std::endl;
-        return; 
+Scalar Rgb::color() {
+    return Scalar(blue, green, red);
+}
+
+Hsv Rgb::rgbToHsv() {
+    Vec3b bgrPixel(blue, green, red);
+    Mat3b bgr (bgrPixel);
+    Mat3b hsv;
+    cvtColor(bgr, hsv, COLOR_BGR2HSV);
+    Vec3b hsvPixel(hsv.at<Vec3b>(0,0));
+    return Hsv(hsvPixel[0], hsvPixel[1], hsvPixel[2]);
+
+}
+// --------------------------- end Rgb class code -------------------------------------------
+
+// --------------------------- begin Object class code --------------------------------------
+Object::Object() {
+    Object::init = false;
+}
+
+unsigned char ucMin(unsigned char a, unsigned char b) {
+    return std::min(a, b);
+}
+
+unsigned char ucMax(unsigned char a, unsigned char b) {
+    return std::max(a, b);
+}
+
+void Object::update(Hsv hsv) {
+    if (!init) {
+        hmin = hmax = hsv;
+        init = true;
     }
-    if (cmax == r)
-        h = 0 + 43 * (g - b) / (cmax - cmin);
-    else if (cmax == g)
-        h = 85 + 43 * (b - r) / (cmax - cmin);
-    else
-        h = 171 + 43 * (r - g) / (cmax - cmin);
-    std::cout << "h is " << (int)h << " s is " << (int)s << " v is " << (int)v << std::endl;
+    hmin.update(hsv, ucMin);
+    hmax.update(hsv, ucMax);
+}
+
+Hsv Object::getHmin() {
+    return hmin;
+}
+
+Hsv Object::getHmax() {
+    return hmax;
+}
+// --------------------------- end Object class code ----------------------------------------
+
+
+std::ostream & operator<<(std::ostream & os, const Hsv & obj) {
+    String text = obj;
+    os << text;
+    return os;
 }
 
 Mat redFilter(const Mat& src) {
     Mat hsv;
+    medianBlur(src, src, 3);
     cvtColor(src, hsv, COLOR_BGR2HSV);
-    rgbToHsv(255, 0, 0);
-    rgbToHsv(255, 204, 204);
-    rgbToHsv(128, 0, 0);
-    rgbToHsv(0, 255, 0);
-    rgbToHsv(0, 0, 255);
-    
+
     Mat mask1,mask2;
 
     inRange(hsv, Scalar(0, 120, 70), Scalar(10, 255, 255), mask1);
     inRange(hsv, Scalar(170, 120, 70), Scalar(180, 255, 255), mask2);
-
     mask1 = mask1 | mask2;
+    GaussianBlur(mask1, mask1, Size(9, 9), 2, 2);
     morphOps(mask1);
 
     return mask1;
@@ -82,24 +121,34 @@ void morphOps(Mat &thresh) {
     erode(thresh, thresh, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
 }
 
-Mat filterColors(const Mat& src, const Mat& zone) {
-    Mat mask;
-    bool first = true;
-    map<uchar, Vec3b> colors = allColorInZone(zone);
-    map<uchar, Vec3b>::iterator itr;
-    for (itr = colors.begin(); itr != colors.end(); ++itr) { 
-        Mat mask2;
-        Vec3b vec = itr->second;
-        Scalar lower = Scalar(255-vec[0], 255-vec[1], 255-vec[2]);
-        Scalar upper = Scalar(vec[0], vec[1], vec[2]);
-        inRange(src, lower, upper, mask2);
-        if (first) {
-            mask = mask2;
-            first = false;
-        } else {
-            mask += mask2;
+Object createFromZone(const Mat& zone) {
+    Object obj;
+    for (int i = 0; i < zone.rows; i++) {
+        for(int j = 0; j < zone.cols; j++) {
+            unsigned char r, g, b;
+            r = zone.at<Vec3b>(i, j)[2];
+            g = zone.at<Vec3b>(i, j)[1];
+            b = zone.at<Vec3b>(i, j)[0];
+            Rgb rgb = Rgb(r, g, b);
+            obj.update(rgb.rgbToHsv());
         }
     }
+
+    return obj;
+}
+
+Mat filterColors(const Mat& src, Object obj) {
+    if (obj.getHmin().getHue() <= 10 && obj.getHmax().getHue() >= 170) {
+        return redFilter(src);
+    }
+    Mat mask;
+    
+    Mat hsv;
+    medianBlur(src, src, 3);
+    cvtColor(src, hsv, COLOR_BGR2HSV);
+    inRange(hsv, obj.getHmin().color(), obj.getHmax().color(), mask);
+    GaussianBlur(mask, mask, Size(9, 9), 2, 2);
+    morphOps(mask);
     return mask;
 }
 

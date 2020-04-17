@@ -22,7 +22,7 @@ file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/output)
 
 
 # put here all the file to compile
-add_executable(video src/main.cpp src/color.hpp src/color.cpp src/delimeted_zone.hpp src/delimeted_zone.cpp)
+add_executable(video src/main.cpp src/color.hpp src/color.cpp src/track.hpp src/track.cpp)
 
 # put here all the libraries to link
 target_link_libraries(video ${OpenCV_LIBS})
