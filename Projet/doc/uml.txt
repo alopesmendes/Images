@@ -1,0 +1,62 @@
+@startuml
+
+package color {
+
+    class Rgb {
+        .. Constructor ..
+        +Rgb(unsigned char red, unsigned char green, unsigned char blue)
+        ==
+        +Scalar color()
+        +Hsv rgbToHsv()
+    }
+    
+    class Hsv {
+        .. Constructor ..
+        +Hsv(unsigned char hue, unsigned char saturation, unsigned char value)
+        +Hsv()
+        ==
+        +Scalar color()
+        +void update(Hsv hsv, unsigned char (*f)(unsigned char, unsigned char))
+        +bool isRed()
+    }
+    
+    class Object {
+        .. Constructor ..
+        +Object()
+        ==
+        +void update(Hsv hsv)
+        +Hsv getHmin()
+        +Hsv getHmax()
+        
+    }
+    
+    class color {
+        +void morphOps(Mat &thresh)
+        +Mat redFilter(const Mat& src)
+        +Object createFromZone(const Mat& zone)
+        +Mat filterColors(const Mat& src, Object obj)
+    }
+    
+    Hsv ..> Rgb
+    Hsv --> Object
+
+}
+
+package track {
+    class track {
+        +Mat trackFilteredObject(const Mat& src, const Mat& filter)
+    }
+}
+
+package main {
+    class main {
+        int main(int argc, char ** argv)
+    }
+    
+    track ..> main
+    color ..> main
+    
+    
+}
+
+@enduml
