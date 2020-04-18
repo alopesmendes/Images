@@ -2,7 +2,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
-#include "color.hpp"
+#include "../include/color.hpp"
 #include <cmath>
 
 using namespace cv;
@@ -28,8 +28,9 @@ void Hsv::update(Hsv hsv, unsigned char (*f)(unsigned char, unsigned char)) {
     value = (*f)(value, hsv.value);
 }
 
-unsigned char Hsv::getHue() {
-    return hue;
+bool Hsv::isRed() {
+    return  (hue <= 10 || hue >= 170)
+            && (saturation >= 120 && value >= 70);
 }
 // --------------------------- end Hsv class code -------------------------------------------
 
@@ -138,7 +139,7 @@ Object createFromZone(const Mat& zone) {
 }
 
 Mat filterColors(const Mat& src, Object obj) {
-    if (obj.getHmin().getHue() <= 10 && obj.getHmax().getHue() >= 170) {
+    if (obj.getHmin().isRed() && obj.getHmax().isRed()) {
         return redFilter(src);
     }
     Mat mask;

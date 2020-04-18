@@ -5,8 +5,8 @@
 #include <iostream>
 #include <string>
 
-#include "color.hpp"
-#include "track.hpp"
+#include "../include/color.hpp"
+#include "../include/track.hpp"
 
 using namespace std;
 using namespace cv;
