@@ -7,8 +7,8 @@
 
 using namespace cv;
 
-/*
-* Return an image delimeting the red zones using filter.
+/**
+* @brief Return an image delimeting the red zones using filter.
 * @param src: Mat
 * @param filter: Mat
 * @return Mat
